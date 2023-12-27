@@ -8,138 +8,126 @@ namespace _15._6Homework
 {
     internal class Repository
     {
-        static string path = Path.GetFullPath(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\"));
-        private static string file = path + @"\Data.txt";
-        private static string new_file = path + @"\new.txt";
-        public string time_file = path + @"\time.txt";
+        private Worker[] workers;
+        private string filePath;
 
-        private static Worker worker;
-
-        public Worker GetAllWorkers(int id)
+        public Repository(string filePath)
         {
-            string text = GetLine(id);
-            string[] array = text.Split("#");
-            worker.id = int.Parse(array[0]);
-            worker.dateString = array[1];
-            worker.fullName = array[2];
-            worker.age = int.Parse(array[3]);
-            worker.height = int.Parse(array[4]);
-            worker.birthdayString = array[5];
-            worker.city = array[6];
-            return worker;
+            this.filePath = filePath;
+
+            // Создаем файл, если его нет
+            if (!File.Exists(filePath))
+            {
+                File.Create(filePath).Close();
+            }
         }
 
-        public Worker GetWorkerById(int id)
+        public void ShowAllWorkers()
         {
-            if (id == 1)
+            try
             {
-                return GetAllWorkers(id - 1);
+                foreach (Worker worker in workers = GetAllWorkers())
+                {
+                    ShowWorker(worker);
+                }
             }
-            else
+            catch 
             {
-                string text = GetLineById(id);
-                string[] array = text.Split("#");
-                worker.id = id;
-                worker.dateString = array[1];
-                worker.fullName = array[2];
-                worker.age = int.Parse(array[3]);
-                worker.height = int.Parse(array[4]);
-                worker.birthdayString = array[5];
-                worker.city = array[6];
-                return worker;
+                Console.WriteLine("Пусто");
             }
         }
 
         public void DeleteWorker(int id)
         {
-            string empty_line = null;
-            int i = 0;
-            using (StreamReader reader = new StreamReader(file))
-            {
-                using (StreamWriter writer = new StreamWriter(new_file))
-                {
-                    while ((empty_line = reader.ReadLine()) != null)
-                    {
-                        i++;
-                        string text = GetLine(i - 1);
-                        string[] array = text.Split("#");
-
-                        if (int.Parse(array[0]) == id)
-                            continue;
-
-
-                        writer.WriteLine(empty_line);
-                    }
-                }
-            }
-            File.Delete(file);
-            File.Move(new_file, file);
+            Worker[] workers = GetAllWorkers().Where(w => w.Id != id).ToArray();
+            WriteWorkersToFile(workers);
         }
 
         public void AddWorker(Worker worker)
         {
-            string[] array = new string[] { worker.id.ToString(), worker.dateString, worker.fullName, worker.age.ToString(), worker.height.ToString(), worker.birthdayString, worker.city };
-            string text = string.Join("#", array);
-            TextWriter tw = new StreamWriter(file, true);
-            tw.WriteLine(text);
-            tw.Close();
+            worker.Id = GetAllWorkers().Max(w => w.Id) + 1;
+            string line = FormatWorker(worker);
+
+            using (StreamWriter writer = File.AppendText(filePath))
+            {
+                writer.WriteLine(line);
+            }
         }
 
-        public void GetWorkersBetweenTwoDates(DateTime dateFrom, DateTime dateTo)
+        public string ShowWorkerById(int id)
         {
-            string line = GetLine(1);
-            string empty_line = null;
-            int i = 0;
-            using (StreamReader reader = new StreamReader(file))
+            Worker worker;
+            string[] lines = File.ReadAllLines(filePath);
+
+            foreach (string line in lines)
             {
-                using (StreamWriter writer = new StreamWriter(time_file))
+                worker = ParseWorker(line);
+                if (worker.Id == id)
                 {
-                    while ((empty_line = reader.ReadLine()) != null)
-                    {
-                        line = GetLine(i);
-                        string[] array = line.Split("#");
-                        if (DateTime.Parse(array[1]) < dateFrom || DateTime.Parse(array[1]) > dateTo)
-                        {
-                            continue;
-                        }
-                        writer.WriteLine(line);
-                        i++;
-                    }
+                    ShowWorker(worker);
+                    return "";
                 }
             }
+
+            return "Не найдено";
         }
 
-        private string GetLineById(int id)
+        public void ShowWorkersBetweenDates(DateTime dateFrom, DateTime dateTo)
         {
-            int i = 1;
-            int check_id = 1;
-            string line = GetLine(i);
-            string empty_line = null;
-            using (StreamReader reader = new StreamReader(file))
+            Worker[] workers = GetWorkersBetweenTwoDates(dateFrom, dateTo);
+            foreach (Worker worker in workers)
             {
-                while ((empty_line = reader.ReadLine()) != null)
-                {
-                    line = GetLine(i);
-                    string[] past_id = line.Split("#");
-                    check_id = int.Parse(past_id[0]);
-                    if (check_id == id)
-                    {
-                        break;
-                    }
-                    i++;
-                }
-                return GetLine(i);
+                ShowWorker(worker);
             }
         }
 
-        public string GetLine(int id)
+        private Worker ParseWorker(string line)
         {
-            using (var sr = new StreamReader(file))
+            string[] parts = line.Split('#');
+            return new Worker
             {
-                for (int i = 1; i <= id; i++)
-                    sr.ReadLine();
-                return sr.ReadLine();
-            }
+                Id = int.Parse(parts[0]),
+                AddedDate = DateTime.Parse(parts[1]),
+                FIO = parts[2],
+                Age = int.Parse(parts[3]),
+                Height = int.Parse(parts[4]),
+                BirthDate = DateTime.Parse(parts[5]),
+                BirthPlace = parts[6]
+            };
+        }
+
+        private string FormatWorker(Worker worker)
+        {
+            return $"{worker.Id}#{worker.AddedDate:dd.MM.yyyy HH:mm}#{worker.FIO}#{worker.Age}#{worker.Height}#{worker.BirthDate:dd.MM.yyyy}#{worker.BirthPlace}";
+        }
+
+        private void ShowWorker(Worker worker)
+        {
+            Console.WriteLine($"ID: {worker.Id}");
+            Console.WriteLine($"Дата добавления: {worker.AddedDate:dd.MM.yyyy HH:mm}");
+            Console.WriteLine($"Ф.И.О.: {worker.FIO}");
+            Console.WriteLine($"Возраст: {worker.Age}");
+            Console.WriteLine($"Рост: {worker.Height}");
+            Console.WriteLine($"Дата рождения: {worker.BirthDate:dd.MM.yyyy}");
+            Console.WriteLine($"Место рождения: {worker.BirthPlace}\n");
+        }
+
+        private Worker[] GetWorkersBetweenTwoDates(DateTime dateFrom, DateTime dateTo)
+        {
+            Worker[] workers = GetAllWorkers().Where(w => w.AddedDate >= dateFrom && w.AddedDate <= dateTo).ToArray();
+            return workers;
+        }
+
+        private Worker[] GetAllWorkers()
+        {
+            string[] lines = File.ReadAllLines(filePath);
+
+            return lines.Select(ParseWorker).ToArray();
+        }
+
+        private void WriteWorkersToFile(Worker[] workers)
+        {
+            File.WriteAllLines(filePath, workers.Select(FormatWorker));
         }
     }
 }
